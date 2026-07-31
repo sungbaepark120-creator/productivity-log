@@ -56,6 +56,10 @@
   .sync-status{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
   .sync-status.ok{color:#7bbf7b;}
   .sync-status.err{color:#e0655a;}
+  .manual-connect-link{
+    background:none;border:none;color:var(--text-faint);text-decoration:underline;
+    font-size:10px;padding:2px 0 0;cursor:pointer;font-family:'Noto Sans KR',sans-serif;
+  }
 
   .date-nav{display:flex;align-items:center;gap:8px;padding:12px 14px;}
   .date-nav button.btn-ghost{padding:9px 13px;font-size:15px;line-height:1;}
@@ -367,6 +371,7 @@
     <div style="text-align:right;">
       <div class="date mono" id="headerDate"></div>
       <div class="sync-status mono" id="syncStatus">연결 안 됨</div>
+      <button class="manual-connect-link" id="manualConnectLink">수동으로 연결</button>
     </div>
   </div>
 </header>
@@ -1288,6 +1293,11 @@ document.getElementById('bedInput').addEventListener('change', (e)=>{
   scheduleSync();
 });
 
+document.getElementById('manualConnectLink').onclick = ()=>{
+  showManualSetupBanner();
+  document.getElementById('setupBanner').scrollIntoView({behavior:'smooth', block:'center'});
+};
+
 /* ---------------- Init ---------------- */
 resetSelection();
 refreshDateNav();
@@ -1296,7 +1306,7 @@ renderToday();
 renderCatSelect();
 renderPeriod();
 renderDeepDive();
-pullFromShared();
+pullFromShared().catch(e => console.error('생산성 로그: 동기화 초기화 중 에러', e));
 </script>
 </body>
 </html>
