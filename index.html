@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Black+Han+Sans&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';document.head.appendChild(s);"></script>
 <style>
   :root{
     --bg:#0c0a08;
@@ -1122,6 +1122,19 @@ function renderToday(){
 let periodDays = 7;
 let donutChart=null, trendChart=null, deepTrendChart=null;
 
+function safeChart(canvasId, config){
+  if(typeof Chart === 'undefined'){
+    console.warn('Chart.js가 로드되지 않아 차트를 건너뜁니다:', canvasId);
+    return null;
+  }
+  try{
+    return new Chart(document.getElementById(canvasId), config);
+  }catch(e){
+    console.warn('차트 생성 실패:', canvasId, e);
+    return null;
+  }
+}
+
 document.getElementById('periodToggle').addEventListener('click',(e)=>{
   const btn = e.target.closest('button');
   if(!btn) return;
@@ -1144,7 +1157,7 @@ function renderPeriod(){
   const donutColors = donutLabels.map(c=>CATEGORIES[c].color);
 
   if(donutChart) donutChart.destroy();
-  donutChart = new Chart(document.getElementById('donutChart'), {
+  donutChart = safeChart('donutChart', {
     type:'doughnut',
     data:{ labels: donutLabels.map(c=>`${c} ${CATEGORIES[c].label}`), datasets:[{ data: donutData, backgroundColor: donutColors, borderWidth:0 }]},
     options:{
@@ -1165,7 +1178,7 @@ function renderPeriod(){
   });
 
   if(trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trendChart'), {
+  trendChart = safeChart('trendChart', {
     type:'bar',
     data:{ labels: shortLabels, datasets: dsets },
     options:{
@@ -1242,7 +1255,7 @@ function renderDeepDive(){
     return dt.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
   });
   if(deepTrendChart) deepTrendChart.destroy();
-  deepTrendChart = new Chart(document.getElementById('deepTrendChart'), {
+  deepTrendChart = safeChart('deepTrendChart', {
     type:'bar',
     data:{ labels: shortLabels, datasets:[{ data: trendData, backgroundColor: CATEGORIES[cat].color, borderRadius:3 }]},
     options:{
