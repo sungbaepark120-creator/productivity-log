@@ -69,11 +69,15 @@
   .cfg-input{margin-top:0;margin-bottom:8px;}
   #setupBanner{font-size:12.5px;color:var(--text-dim);line-height:1.6;}
   #setupBanner code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-family:'IBM Plex Mono',monospace;}
+  #setupBanner a{color:var(--ember-2);}
   .blob-id-box{
-    display:flex;align-items:center;gap:10px;margin-top:10px;
-    background:var(--surface-2);border-radius:8px;padding:10px 12px;
+    display:flex;align-items:center;gap:8px;margin-top:12px;
   }
-  .blob-id-box .mono{flex:1;font-size:13px;word-break:break-all;}
+  .blob-id-box input{
+    flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:10px 12px;font-size:12.5px;
+  }
+  .blob-id-box input::placeholder{color:var(--text-faint);}
 
   /* --- Hero --- */
   .hero{
@@ -640,44 +644,75 @@ function setSyncStatus(text, kind){
 function nowHM(){
   return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
 }
-function showSetupBanner(id){
+function showAutoCreatedBanner(id){
   const el = document.getElementById('setupBanner');
   if(!el) return;
   el.style.display='block';
   el.innerHTML = `
-    <b>최초 설정이 필요합니다.</b> 새 공유 저장소가 만들어졌어요. 아래 ID를 복사해서
+    <b>최초 설정이 필요합니다.</b> 새 공유 저장소가 자동으로 만들어졌어요 (가입/설정 불필요). 아래 ID를 복사해서
     코드의 <code>const BLOB_ID = ''</code> 부분에 붙여넣고 GitHub에 커밋하면,
-    이 링크로 들어오는 모두가 같은 기록을 보게 됩니다.
-    <div class="blob-id-box"><span class="mono" id="blobIdText">${id}</span>
-    <button class="btn btn-ghost" id="copyBlobBtn" style="padding:4px 10px;font-size:11px;">복사</button></div>
+    이 링크로 들어오는 모두가 같은 기록을 보게 됩니다. 이미 지금 이 브라우저에서는 바로 작동합니다.
+    <div class="blob-id-box"><input type="text" class="mono" id="blobIdText" value="${id}" readonly>
+    <button class="btn btn-ghost" id="copyBlobBtn" style="padding:8px 12px;font-size:11px;">복사</button></div>
   `;
   document.getElementById('copyBlobBtn').onclick = ()=>{
     navigator.clipboard?.writeText(id);
     showToast('ID 복사됨');
   };
 }
+function showManualSetupBanner(){
+  const el = document.getElementById('setupBanner');
+  if(!el) return;
+  el.style.display='block';
+  el.innerHTML = `
+    <b>최초 설정이 필요합니다.</b> jsonblob.com에서 직접 저장소를 하나 만들어야 합니다 (30초, 무료, 가입 불필요).
+    <ol style="margin:10px 0 0;padding-left:18px;line-height:1.7;">
+      <li><a href="https://jsonblob.com" target="_blank" rel="noopener" style="color:var(--ember-2);">jsonblob.com</a>을 새 탭으로 엽니다</li>
+      <li>에디터에 <code>{"entries":{},"sleep":{}}</code> 를 입력합니다</li>
+      <li>저장(Save) 버튼을 누르면 주소창이 <code>jsonblob.com/&lt;ID&gt;</code> 형태로 바뀝니다</li>
+      <li>그 ID를 복사해서 코드의 <code>const BLOB_ID = ''</code> 부분에 붙여넣고 GitHub에 커밋하세요</li>
+    </ol>
+    <div class="blob-id-box">
+      <input type="text" class="mono" id="blobIdManualInput" placeholder="여기에 방금 만든 ID를 붙여넣으면 지금 바로 테스트할 수 있어요">
+      <button class="btn btn-ghost" id="blobIdManualSaveBtn" style="padding:8px 12px;font-size:11px;">적용</button>
+    </div>
+  `;
+  document.getElementById('blobIdManualSaveBtn').onclick = ()=>{
+    const val = document.getElementById('blobIdManualInput').value.trim();
+    if(!val){ showToast('ID를 입력해주세요'); return; }
+    try{ localStorage.setItem('temp_blob_id', val); }catch(e){}
+    activeBlobId = val;
+    el.style.display='none';
+    showToast('연결됨 — 잊지 말고 코드의 BLOB_ID에도 붙여넣어 커밋하세요');
+    pullFromShared();
+  };
+}
 async function ensureBlobId(){
   if(activeBlobId) return activeBlobId;
   let cached = null;
   try{ cached = localStorage.getItem('temp_blob_id'); }catch(e){}
-  if(cached){ activeBlobId = cached; showSetupBanner(cached); return cached; }
+  if(cached){ activeBlobId = cached; return cached; }
   setSyncStatus('저장소 생성 중…');
   try{
     const res = await fetch('https://jsonblob.com/api/jsonBlob', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
       body: JSON.stringify({ entries:{}, sleep:{}, updatedAt: new Date().toISOString() })
     });
-    const loc = res.headers.get('Location') || res.headers.get('location') || '';
-    const id = loc.split('/').filter(Boolean).pop();
+    let id = res.headers.get('X-jsonblob') || res.headers.get('x-jsonblob');
+    if(!id){
+      const loc = res.headers.get('Location') || res.headers.get('location') || '';
+      id = loc.split('/').filter(Boolean).pop();
+    }
     if(id){
       try{ localStorage.setItem('temp_blob_id', id); }catch(e){}
       activeBlobId = id;
-      showSetupBanner(id);
+      showAutoCreatedBanner(id);
       return id;
     }
-  }catch(e){ /* fall through */ }
+  }catch(e){ /* fall through to manual fallback below */ }
   setSyncStatus('저장소 생성 실패 · 로컬에만 저장됨', 'err');
+  showManualSetupBanner();
   return null;
 }
 async function pullFromShared(){
